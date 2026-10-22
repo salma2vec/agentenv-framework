@@ -28,7 +28,8 @@ or in `/app` on the host.
 
 `agents/pi/` runs the [pi coding agent](https://github.com/earendil-works/pi/tree/main/packages/coding-agent) behind
 the protocol's A2A agent framework: each turn is one `pi --mode json` run, the task env's MCP servers go to its
-`mcp.json`, and its JSON events are the turn's trajectory. Name it as `@local/agentenv-framework/agents/pi`. It calls
+`mcp.json`, and its JSON events are the turn's trajectory. Name it as `pi`, its alias, or by its id,
+`@local/agentenv-framework/agents/pi`. It calls
 the `[model]` endpoint as an OpenAI-compatible one and takes its model from the prompt, so its smoke task needs
 `[model] default` (or the `agent` role) set. It declares `install/v1` too, for Debian or Ubuntu targets.
 Its folder's `README.md` covers the extensions it implements.
@@ -36,9 +37,14 @@ Its folder's `README.md` covers the extensions it implements.
 `agents/openhands/` runs the [OpenHands](https://github.com/OpenHands/software-agent-sdk) agent behind the
 protocol's A2A agent framework, driving the OpenHands SDK in process rather than a CLI: each turn is one run of a
 persisted SDK conversation, the task env's MCP servers go to its `mcp_config`, and its SDK events are the turn's
-trajectory. Name it as `@local/agentenv-framework/agents/openhands`. It calls the `[model]` endpoint through LiteLLM
-and takes its model from the prompt, so its smoke task needs `[model] default` (or the `agent` role) set. It declares
-`install/v1` too, for Debian or Ubuntu targets. Its folder's `README.md` covers the extensions it implements.
+trajectory. Name it as `openhands`, its alias, or by its id, `@local/agentenv-framework/agents/openhands`. It
+calls the `[model]` endpoint through LiteLLM and takes its model from the prompt, so its smoke task needs
+`[model] default` (or the `agent` role) set. It declares `install/v1` too, for Debian or Ubuntu targets. Its folder's
+`README.md` covers the extensions it implements.
 
-`agent-env run agents` runs every agent's smoke task, building each image; `--task claude-code-smoke` runs Claude
+A release publishes pi's and OpenHands' images too, at `ghcr.io/scaleapi/agentenv-pi:src-<hex>` and
+`ghcr.io/scaleapi/agentenv-openhands:src-<hex>`, and a run deploys them as it does Claude Code's: it pulls the image
+published for the sources installed, by its digest, and builds it from the agent's folder only when it can't.
+
+`agent-env run agents` runs every agent's smoke task, pulling or building each image; `--task claude-code-smoke` runs Claude
 Code's alone, `--task pi-smoke` pi's, `--task openhands-smoke` OpenHands'.

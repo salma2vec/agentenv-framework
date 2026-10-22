@@ -283,10 +283,10 @@ and every job that reads those folders runs it first, so an image's tag, its bui
 and creates the GitHub release, whose notes are the titles of the pull
 requests merged since the previous release.
 Once the repository variable `PUBLISH_INFRA_IMAGES` is `true`, it also publishes the infra images agent-env
-ships and the Claude Code agent's (`agent_env.env.published_images`) whose `src-<hex>` tags GHCR lacks: after `main`'s CI passes, each is
+ships and the shipped agents', one per agent folder (`agent_env.env.published_images`), whose `src-<hex>` tags GHCR lacks: after `main`'s CI passes, each is
 built on a runner of each platform, checked, and tagged as one multi-platform image, and a tag that exists is
 never moved. The infra images are published before the protocol, and a failed infra image job sends neither package
-to PyPI. The agent's image installs the protocol the release pins, so each release builds it again once the protocol is
+to PyPI. The agents' images install the protocol the release pins, so each release builds them again once the protocol is
 on PyPI, and a failed agent image job keeps `agentenv-framework` off it. The wheel and the release notes record each
 image's digest. Run by hand on `main`, the workflow publishes the images alone.
 Its jobs that run agent-env (`.github/scripts/infra_images.py`) hold no token that writes; the jobs that push
