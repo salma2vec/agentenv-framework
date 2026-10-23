@@ -339,19 +339,9 @@ def _test_sh_writing_reward_only_on_pass(answer):
     return run
 
 
-@pytest.mark.parametrize(
-    ("agent_files", "expected_score"),
-    [
-        ({"/app/answer.txt": "42"}, 1.0),
-        ({"/app/answer.txt": "41"}, 0.0),
-        ({"/app/answer.txt": "41", "/logs/verifier/reward.txt": "1\n"}, 0.0),
-    ],
-    ids=["correct", "wrong", "wrong-with-planted-reward"],
-)
-def test_reward_comes_from_this_verifier_run(local_stores, monkeypatch, agent_files, expected_score):
-    """A reward file the agent left in the container must not be graded as the verifier's."""
+def _recorded(monkeypatch, sandbox, step):
+    """What ``step`` records after running against ``sandbox``."""
     configure()
-    sandbox = _ContainerSandbox(agent_files, _test_sh_writing_reward_only_on_pass("42"))
     provider = SimpleNamespace(get_sandbox=lambda sandbox_id: asyncio.sleep(0, result=sandbox))
     monkeypatch.setattr(sandbox_provider, "get_sandbox_provider", lambda: provider)
     monkeypatch.setattr(
@@ -364,10 +354,39 @@ def test_reward_comes_from_this_verifier_run(local_stores, monkeypatch, agent_fi
     ctx = TaskStepContext()
     ctx.metadata["deployed_docker_containers"] = [{"container_name": "c", "sandbox_name": "h"}]
     ctx.deployed_sandboxes.append(DeployedSandbox(sandbox_name="h", sandbox_id="sb-1", sandbox_mode="vm"))
-
-    step = _step(command="bash /tests/test.sh", reward_path="/logs/verifier/reward.txt")
     asyncio.run(step.execute(ctx))
-
     [recorded] = ctx.metadata["verifications"].values()
+    return recorded
+
+
+@pytest.mark.parametrize(
+    ("agent_files", "expected_score"),
+    [
+        ({"/app/answer.txt": "42"}, 1.0),
+        ({"/app/answer.txt": "41"}, 0.0),
+        ({"/app/answer.txt": "41", "/logs/verifier/reward.txt": "1\n"}, 0.0),
+    ],
+    ids=["correct", "wrong", "wrong-with-planted-reward"],
+)
+def test_reward_comes_from_this_verifier_run(local_stores, monkeypatch, agent_files, expected_score):
+    """A reward file the agent left in the container must not be graded as the verifier's."""
+    sandbox = _ContainerSandbox(agent_files, _test_sh_writing_reward_only_on_pass("42"))
+
+    recorded = _recorded(monkeypatch, sandbox, _step(command="bash /tests/test.sh",
+                                                     reward_path="/logs/verifier/reward.txt"))
+
     assert recorded["score"] == expected_score
     assert recorded["results"][0]["result"] is (expected_score == 1.0)
+
+
+@pytest.mark.parametrize("reward_path", ["/logs/verifier/reward.txt", None], ids=["reward-mode", "exit-code-mode"])
+def test_only_the_reward_file_is_cleared(local_stores, monkeypatch, reward_path):
+    """A step can extract what an earlier step's job wrote, as a supervisor step adopting a running engine does."""
+    files = {"/work/events.tail.json": '{"seq": 7}', "/logs/verifier/reward.txt": "1\n"}
+    sandbox = _ContainerSandbox(files, lambda files: 0)
+
+    recorded = _recorded(monkeypatch, sandbox, _step(command="true", reward_path=reward_path,
+                                                     result_paths=["/work/events.tail.json"]))
+
+    assert recorded["extracted_files"]["/work/events.tail.json"] == {"seq": 7}
+    assert ("/logs/verifier/reward.txt" in sandbox.files) is (reward_path is None)

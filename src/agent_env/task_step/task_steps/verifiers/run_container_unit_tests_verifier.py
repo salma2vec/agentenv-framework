@@ -276,14 +276,15 @@ class RunContainerUnitTestsVerifierTaskStep(TaskStep):
                 f"{shlex.quote(sandbox.scoped_name(self.container_name))} bash -c {shlex.quote(setup_cmd)}"
             )
 
-        # 4. Clear the result files. The agent worked in this container and could have left
-        # a reward file there; anything extracted below must come from this verifier run.
-        # `-w /` resolves relative paths the way `docker cp` does.
-        if self.result_paths:
+        # 4. Clear the reward file the score is read from, so one the agent left in this container
+        # isn't graded; a process the agent left running can still write it. Other result files
+        # stay: a step can extract what an earlier step's job wrote. `-w /` resolves a relative
+        # path as `docker cp` does, and uid 0 needs no passwd entry.
+        if self.reward_path:
             await sandbox.exec_script(
-                f"docker exec -u root -w / "
+                f"docker exec -u 0 -w / "
                 f"{shlex.quote(sandbox.scoped_name(self.container_name))} "
-                f"rm -f -- {' '.join(shlex.quote(p) for p in self.result_paths)}"
+                f"rm -f -- {shlex.quote(self.reward_path)}"
             )
 
         # 5. Run main command, bounded by in-container timeout(1)
